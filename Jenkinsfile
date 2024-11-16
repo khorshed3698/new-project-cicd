@@ -2,13 +2,13 @@ pipeline {
     agent any
     environment {
         REGISTRY = "hub.docker.com"
-        dockerRegistryCredential = 'hub.docker.com'
-        DOCKER_REGISTRY_URL = "https://$REGISTRY"
+        dockerRegistryCredential = 'docker-credentials-id' // Replace with your Jenkins credential ID for Docker registry
+        DOCKER_REGISTRY_URL = "https://${REGISTRY}"
         IMAGE_CREATED_BY = "jenkins"
         PROJECT_NAME = "NEW-PROJECT-CICD"
         BUILD_TAG = "${BUILD_NUMBER}-${IMAGE_CREATED_BY}"
-        DOCKER_TAG = "$REGISTRY/$PROJECT_NAME:$BUILD_TAG"
-        DISCORD_WEBHOOK_URL = credentials('https://discord.com/channels/@me') // Use Jenkins credentials
+        DOCKER_TAG = "${REGISTRY}/${PROJECT_NAME}:${BUILD_TAG}"
+        DISCORD_WEBHOOK_URL = credentials('https://discord.com/channels/1201941014948876328/1207622436925866065') // Replace with your Jenkins credential ID for Discord webhook
     }
 
     stages {
@@ -20,7 +20,7 @@ pipeline {
                         script: "git log -1 --format='%H'",
                         returnStdout: true
                     ).trim()
-                    echo "Last Commit ID: $COMMIT_ID"
+                    echo "Last Commit ID: ${COMMIT_ID}"
                 }
             }
         }
@@ -50,16 +50,16 @@ pipeline {
                 script {
                     echo "Running Trivy security scan..."
                     def scanResult = sh(
-                        script: "trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_TAG",
+                        script: "trivy image --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_TAG}",
                         returnStatus: true
                     )
 
                     def message
                     if (scanResult != 0) {
-                        message = "🚨 *Security Scan Failed!* Trivy detected critical issues in the image $DOCKER_TAG."
+                        message = "🚨 *Security Scan Failed!* Trivy detected critical issues in the image ${DOCKER_TAG}."
                         error "Security scan failed."
                     } else {
-                        message = "✅ *Security Scan Passed!* No critical vulnerabilities found in the image $DOCKER_TAG."
+                        message = "✅ *Security Scan Passed!* No critical vulnerabilities found in the image ${DOCKER_TAG}."
                     }
                     sendDiscordNotification(message)
                 }
@@ -69,7 +69,7 @@ pipeline {
         stage('Run Docker container') {
             steps {
                 echo "Running Docker container for application..."
-                sh "docker run -d --name php-app -p 8088:80 $DOCKER_TAG"
+                sh "docker run -d --name php-app -p 8088:80 ${DOCKER_TAG}"
             }
         }
 
@@ -94,39 +94,13 @@ pipeline {
             }
         }
 
-        stage('Run SQA Testing') {
-            steps {
-                script {
-                    echo "Running SQA tests..."
-                    def sqaResult = sh(
-                        script: '''
-                        # Example SQA test commands
-                        echo "Running SQA tests..."
-                        # Replace this with actual testing commands
-                        exit 0
-                        ''',
-                        returnStatus: true
-                    )
-
-                    def message
-                    if (sqaResult != 0) {
-                        message = "🚨 *SQA Tests Failed!* Check logs for details."
-                        error "SQA tests failed."
-                    } else {
-                        message = "✅ *SQA Tests Passed!*"
-                    }
-                    sendDiscordNotification(message)
-                }
-            }
-        }
-
         stage('Deploy') {
             steps {
                 script {
                     echo "Deploying application..."
-                    sh "docker run -d $DOCKER_TAG"
+                    sh "docker run -d ${DOCKER_TAG}"
 
-                    def message = "🚀 *Deployment Successful!* Image $DOCKER_TAG has been deployed."
+                    def message = "🚀 *Deployment Successful!* Image ${DOCKER_TAG} has been deployed."
                     sendDiscordNotification(message)
                 }
             }
@@ -135,20 +109,25 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning up resources..."
-            sh '''
-            docker stop php-app || true
-            docker rm php-app || true
-            docker rmi $DOCKER_TAG || true
-            '''
+            script {
+                echo "Cleaning up resources..."
+                sh '''
+                docker stop php-app || true
+                docker rm php-app || true
+                docker rmi ${DOCKER_TAG} || true
+                '''
+            }
         }
     }
 }
 
 def sendDiscordNotification(String message) {
+    def payload = [
+        content: message
+    ]
     sh """
     curl -H "Content-Type: application/json" \
-        -d '{ "content": "${message}" }' \
+        -d '${groovy.json.JsonOutput.toJson(payload)}' \
         ${DISCORD_WEBHOOK_URL}
     """
 }
