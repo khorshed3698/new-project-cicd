@@ -2,13 +2,13 @@ pipeline {
     agent any
     environment {
         REGISTRY = "hub.docker.com"
-        dockerRegistryCredential = 'docker-credentials-id' // Replace with your Jenkins credential ID for Docker registry
+        dockerRegistryCredential = 'docker-credentials-id' // Replace with Jenkins Docker credential ID
         DOCKER_REGISTRY_URL = "https://${REGISTRY}"
         IMAGE_CREATED_BY = "jenkins"
         PROJECT_NAME = "NEW-PROJECT-CICD"
-        BUILD_TAG = "${BUILD_NUMBER}-${IMAGE_CREATED_BY}"
+        BUILD_TAG = "${env.BUILD_NUMBER}-${IMAGE_CREATED_BY}"
         DOCKER_TAG = "${REGISTRY}/${PROJECT_NAME}:${BUILD_TAG}"
-        DISCORD_WEBHOOK_URL = credentials('https://discord.com/channels/1201941014948876328/1207622436925866065') // Replace with your Jenkins credential ID for Discord webhook
+        DISCORD_WEBHOOK_URL = credentials('discord-webhook-credentials-id') // Use the credentials ID
     }
 
     stages {
@@ -25,20 +25,20 @@ pipeline {
             }
         }
 
-        stage('Building Docker image') {
+        stage('Build Docker Image') {
             steps {
                 script {
                     echo "Building Docker image..."
-                    dockerImage = docker.build(DOCKER_TAG, "-f ./Dockerfile .")
+                    dockerImage = docker.build("${DOCKER_TAG}", "-f ./Dockerfile .")
                 }
             }
         }
 
-        stage('Push Docker image') {
+        stage('Push Docker Image') {
             steps {
                 script {
                     echo "Pushing Docker image to registry..."
-                    docker.withRegistry(DOCKER_REGISTRY_URL, dockerRegistryCredential) {
+                    docker.withRegistry("${DOCKER_REGISTRY_URL}", dockerRegistryCredential) {
                         dockerImage.push()
                     }
                 }
@@ -53,7 +53,6 @@ pipeline {
                         script: "trivy image --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_TAG}",
                         returnStatus: true
                     )
-
                     def message
                     if (scanResult != 0) {
                         message = "🚨 *Security Scan Failed!* Trivy detected critical issues in the image ${DOCKER_TAG}."
@@ -66,7 +65,7 @@ pipeline {
             }
         }
 
-        stage('Run Docker container') {
+        stage('Run Docker Container') {
             steps {
                 echo "Running Docker container for application..."
                 sh "docker run -d --name php-app -p 8088:80 ${DOCKER_TAG}"
@@ -81,53 +80,9 @@ pipeline {
                         script: "docker exec php-app /var/www/html/vendor/bin/phpunit --configuration phpunit.xml",
                         returnStatus: true
                     )
-
                     def message
                     if (testResult != 0) {
                         message = "🚨 *Unit Tests Failed!* Check logs for details."
                         error "Unit tests failed."
                     } else {
-                        message = "✅ *Unit Tests Passed!*"
-                    }
-                    sendDiscordNotification(message)
-                }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                script {
-                    echo "Deploying application..."
-                    sh "docker run -d ${DOCKER_TAG}"
-
-                    def message = "🚀 *Deployment Successful!* Image ${DOCKER_TAG} has been deployed."
-                    sendDiscordNotification(message)
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            script {
-                echo "Cleaning up resources..."
-                sh '''
-                docker stop php-app || true
-                docker rm php-app || true
-                docker rmi ${DOCKER_TAG} || true
-                '''
-            }
-        }
-    }
-}
-
-def sendDiscordNotification(String message) {
-    def payload = [
-        content: message
-    ]
-    sh """
-    curl -H "Content-Type: application/json" \
-        -d '${groovy.json.JsonOutput.toJson(payload)}' \
-        ${DISCORD_WEBHOOK_URL}
-    """
-}
+                        messa
