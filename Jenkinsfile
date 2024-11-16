@@ -1,220 +1,154 @@
 pipeline {
     agent any
     environment {
-        REGISTRY="hub.docker.com"
-        dockerRegistryCredential='hub.docker.com'
-        dockerImage = ''
-        DOCKER_REGISTRY_URL="https://$REGISTRY"
-        IMAGE_CREATED_BY="jenkins"
-        PROJECT_NAME="NEW-PROJECT-CICD"
-        GIT_TAG=sh(returnStdout: true, script: '''        
-            echo $(git describe --tags)
-        ''').trim()
-        IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY"
-        DOCKER_TAG="$REGISTRY/$PROJECT_NAME:$IMAGE_VERSION"
-        DISCORD_WEBHOOK_URL = 'https://discord.com/channels/1201941014948876328/1207622436925866065' // Replace with your Discord webhook URL
-
+        REGISTRY = "hub.docker.com"
+        dockerRegistryCredential = 'hub.docker.com'
+        DOCKER_REGISTRY_URL = "https://$REGISTRY"
+        IMAGE_CREATED_BY = "jenkins"
+        PROJECT_NAME = "NEW-PROJECT-CICD"
+        BUILD_TAG = "${BUILD_NUMBER}-${IMAGE_CREATED_BY}"
+        DOCKER_TAG = "$REGISTRY/$PROJECT_NAME:$BUILD_TAG"
+        DISCORD_WEBHOOK_URL = credentials('discord-webhook-url') // Use Jenkins credentials
     }
 
     stages {
-
         stage('Init') {
             steps {
-                sh '''
-                COMMIT_ID=$(git log -1|head -1|awk -F ' ' ' {print $NF}')
-                echo "Commit ID: $COMMIT_ID"
-                '''
+                echo "Initializing pipeline..."
+                script {
+                    COMMIT_ID = sh(
+                        script: "git log -1 --format='%H'",
+                        returnStdout: true
+                    ).trim()
+                    echo "Last Commit ID: $COMMIT_ID"
+                }
             }
         }
 
-        // stage('Check for tag') {
-        //     steps {
-        //         sh '''        
-        //         if [ -z "$GIT_TAG" ] #empty check
-        //         then
-        //             echo ERROR: Tag not found
-        //             exit 1 # terminate and indicate error                 
-        //         fi
-        //         echo "git checking out to $GIT_TAG tag"
-        //         git checkout $GIT_TAG
-        //         '''    
-        //     }
-        // }
-
-        // stage('Clean up local image') {
-        //     steps {
-        //         echo "Cleaning local docker registry $DOCKER_TAG image"
-        //         sh 'docker rmi $DOCKER_TAG'
-        //     }
-        // }
-
-        stage('Building Docker image') { 
-            steps { 
-                script { 
-                    dockerImage = docker.build("$DOCKER_TAG", "-f ./Dockerfile .")
+        stage('Building Docker image') {
+            steps {
+                script {
+                    echo "Building Docker image..."
+                    dockerImage = docker.build(DOCKER_TAG, "-f ./Dockerfile .")
                 }
-                sh '''
-                docker images | grep $PROJECT_NAME
-                '''
-            } 
+            }
         }
 
         stage('Push Docker image') {
             steps {
                 script {
-                    docker.withRegistry( "$DOCKER_REGISTRY_URL", dockerRegistryCredential ) {
+                    echo "Pushing Docker image to registry..."
+                    docker.withRegistry(DOCKER_REGISTRY_URL, dockerRegistryCredential) {
                         dockerImage.push()
-                        sh "docker images | grep $PROJECT_NAME"
                     }
                 }
             }
         }
-
-
-        // stage('Security Scan') {
-        //     steps {
-        //         script {
-        //             // Run Trivy scan on the built image
-        //             def scanResult = sh(script: 'trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_TAG', returnStatus: true)
-                    
-        //             // Check if the scan failed
-        //             if (scanResult != 0) {
-        //                 // Send failure message to Discord
-        //                 def message = "Trivy scan failed for image $DOCKER_TAG. Check the logs for details."
-        //                 sh """
-        //                 curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-        //                 """
-        //                 error "Trivy scan failed."
-        //             }
-        //         }
-        //     }
-        // }  
 
         stage('Security Scan') {
             steps {
                 script {
-                    // Run Trivy scan on the built image
-                    def scanResult = sh(script: "trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_TAG", returnStatus: true)
-                    
-                    // Prepare the message based on the scan result
+                    echo "Running Trivy security scan..."
+                    def scanResult = sh(
+                        script: "trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_TAG",
+                        returnStatus: true
+                    )
+
+                    def message
                     if (scanResult != 0) {
-                        // Send failure message to Discord
-                        def message = "Trivy scan failed for image $DOCKER_TAG. Check the logs for details."
-                        sh """
-                        curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                        """
+                        message = "🚨 *Security Scan Failed!* Trivy detected critical issues in the image $DOCKER_TAG."
+                        error "Security scan failed."
                     } else {
-                        // Send success message to Discord
-                        def message = "Trivy scan succeeded for image $DOCKER_TAG. No critical vulnerabilities found."
-                        sh """
-                        curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                        """
+                        message = "✅ *Security Scan Passed!* No critical vulnerabilities found in the image $DOCKER_TAG."
                     }
+                    sendDiscordNotification(message)
                 }
             }
-        }              
+        }
 
         stage('Run Docker container') {
             steps {
-                echo "Running Docker container for PHP app"
-                sh '''
-                docker run -d --name php-app -p 8088:80 $DOCKER_TAG
-                '''
+                echo "Running Docker container for application..."
+                sh "docker run -d --name php-app -p 8088:80 $DOCKER_TAG"
             }
         }
-       
-    //     stage('Run PHPUnit Tests') {
-    //         steps {
-    //             echo "Running PHPUnit tests in Docker container"
-    //             sh '''
-    //             docker exec php-app /var/www/html/vendor/bin/phpunit --configuration phpunit.xml
-    //             '''
-    //         }
-    //     }
-
-    //     stage('Run SQA Testing') {
-    //         steps {
-    //             echo "Running SQA testing for PHP application"
-    //             // Add your custom SQA testing scripts here
-    //             sh '''
-    //             # Example placeholder for running SQA tests
-    //             echo "Running SQA tests..."
-    //             '''
-    //         }
-    //     }
-    // }
 
         stage('Run PHPUnit Tests') {
             steps {
                 script {
-                    echo "Running PHPUnit tests in Docker container"
-                    def testResult = sh(script: '''
-                    docker exec php-app /var/www/html/vendor/bin/phpunit --configuration phpunit.xml
-                    ''', returnStatus: true)
+                    echo "Executing PHPUnit tests..."
+                    def testResult = sh(
+                        script: "docker exec php-app /var/www/html/vendor/bin/phpunit --configuration phpunit.xml",
+                        returnStatus: true
+                    )
 
-                    // Send test result to Discord
+                    def message
                     if (testResult != 0) {
-                        def message = "Unit tests failed in Docker container php-app. Check the logs for details."
-                        sh """
-                        curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                        """
+                        message = "🚨 *Unit Tests Failed!* Check logs for details."
+                        error "Unit tests failed."
                     } else {
-                        def message = "Unit tests passed successfully in Docker container php-app."
-                        sh """
-                        curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                        """
+                        message = "✅ *Unit Tests Passed!*"
                     }
+                    sendDiscordNotification(message)
                 }
             }
         }
+
         stage('Run SQA Testing') {
             steps {
                 script {
-                    echo "Running SQA testing for PHP application"
-                    def sqaResult = sh(script: '''
-                    # Example placeholder for running SQA tests
                     echo "Running SQA tests..."
-                    # Add your actual SQA testing commands here
-                    ''', returnStatus: true)
+                    def sqaResult = sh(
+                        script: '''
+                        # Example SQA test commands
+                        echo "Running SQA tests..."
+                        # Replace this with actual testing commands
+                        exit 0
+                        ''',
+                        returnStatus: true
+                    )
 
-                    // Send SQA test result to Discord
+                    def message
                     if (sqaResult != 0) {
-                        def message = "SQA tests failed for the PHP application. Check the logs for details."
-                        sh """
-                        curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                        """
+                        message = "🚨 *SQA Tests Failed!* Check logs for details."
+                        error "SQA tests failed."
                     } else {
-                        def message = "SQA tests passed successfully for the PHP application."
-                        sh """
-                        curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                        """
+                        message = "✅ *SQA Tests Passed!*"
                     }
+                    sendDiscordNotification(message)
                 }
             }
         }
+
         stage('Deploy') {
             steps {
                 script {
-                    // Deploy your Docker image here
-                    sh 'docker run -d $DOCKER_TAG'
-                    
-                    // Send deployment success message to Discord
-                    def message = "Deployment of $DOCKER_TAG was successful."
-                    sh """
-                    curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                    """
+                    echo "Deploying application..."
+                    sh "docker run -d $DOCKER_TAG"
+
+                    def message = "🚀 *Deployment Successful!* Image $DOCKER_TAG has been deployed."
+                    sendDiscordNotification(message)
                 }
             }
         }
-    }    
+    }
 
-    // post {
-    //     always {
-    //         echo "Stopping and removing Docker container"
-    //         sh '''
-    //         docker stop php-app || true
-    //         docker rm php-app || true
-    //         '''
-    //     }
-    // }
+    post {
+        always {
+            echo "Cleaning up resources..."
+            sh '''
+            docker stop php-app || true
+            docker rm php-app || true
+            docker rmi $DOCKER_TAG || true
+            '''
+        }
+    }
+}
+
+def sendDiscordNotification(String message) {
+    sh """
+    curl -H "Content-Type: application/json" \
+        -d '{ "content": "${message}" }' \
+        ${DISCORD_WEBHOOK_URL}
+    """
 }
