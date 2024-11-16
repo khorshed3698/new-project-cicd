@@ -1,18 +1,18 @@
 pipeline {
     agent any
     environment {
-        REGISTRY="docker-hub.land.gov.bd"
-        dockerRegistryCredential='docker-hub.land.gov.bd'
+        REGISTRY="hub.docker.com"
+        dockerRegistryCredential='hub.docker.com'
         dockerImage = ''
         DOCKER_REGISTRY_URL="https://$REGISTRY"
         IMAGE_CREATED_BY="jenkins"
-        PROJECT_NAME="php-app-prod"
+        PROJECT_NAME="NEW-PROJECT-CICD"
         GIT_TAG=sh(returnStdout: true, script: '''        
             echo $(git describe --tags)
         ''').trim()
         IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY"
         DOCKER_TAG="$REGISTRY/$PROJECT_NAME:$IMAGE_VERSION"
-        DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1298966562560278528/ZxIheTb2XWWhAtQrC2_S58tcSlszIp_qD1RG9j9hOk8hh1gS6YOCq7JDWG7aNpYvM5eq' // Replace with your Discord webhook URL
+        DISCORD_WEBHOOK_URL = 'https://discord.com/channels/1201941014948876328/1207622436925866065' // Replace with your Discord webhook URL
 
     }
 
