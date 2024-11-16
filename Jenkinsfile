@@ -8,7 +8,7 @@ pipeline {
         PROJECT_NAME = "NEW-PROJECT-CICD"
         BUILD_TAG = "${BUILD_NUMBER}-${IMAGE_CREATED_BY}"
         DOCKER_TAG = "$REGISTRY/$PROJECT_NAME:$BUILD_TAG"
-        DISCORD_WEBHOOK_URL = credentials('discord-webhook-url') // Use Jenkins credentials
+        DISCORD_WEBHOOK_URL = credentials('https://discord.com/channels/@me') // Use Jenkins credentials
     }
 
     stages {
