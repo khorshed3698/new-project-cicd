@@ -6,7 +6,7 @@ pipeline {
         //dockerImage = ''
         DOCKER_REGISTRY_URL="https://$REGISTRY"
         IMAGE_CREATED_BY="jenkins"
-        PROJECT_NAME="php-app-prod"
+        PROJECT_NAME="khorshed-app-prod"
         DOCKER_USERNAME="khorshedparvej3698"
         GIT_TAG=sh(returnStdout: true, script: '''        
             echo $(git describe --tags)
@@ -119,12 +119,12 @@ pipeline {
             steps {
                 echo "Running Docker container for PHP app"
                 sh '''
-                if [ $(docker ps -aq -f name=php-app-prod) ]; then
+                if [ $(docker ps -aq -f name=khorshed-app-prod) ]; then
             echo "Stopping and removing existing container..."
-            docker stop php-app-prod || true
-            docker rm php-app-prod || true
+            docker stop khorshed-app-prod || true
+            docker rm khorshed-app-prod || true
                 fi
-                docker run -d --name php-app-prod -p 8090:80 $DOCKER_TAG
+                docker run -d --name khorshed-app-prod -p 8090:80 $DOCKER_TAG
                 '''
             }
         }
@@ -155,7 +155,7 @@ pipeline {
                 script {
                     echo "Running PHPUnit tests in Docker container"
                     def testResult = sh(script: '''
-                    docker exec php-app-prod /var/www/html/vendor/bin/phpunit --configuration phpunit.xml
+                    docker exec khorshed-app-prod /var/www/html/vendor/bin/phpunit --configuration phpunit.xml
                     ''', returnStatus: true)
 
                     // Send test result to Discord
