@@ -11,7 +11,8 @@ pipeline {
             echo $(git describe --tags)
         ''').trim()
         IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY"
-        DOCKER_TAG="$REGISTRY/$PROJECT_NAME:$IMAGE_VERSION"
+        Docker_Username="khorshedparvej3698"
+        DOCKER_TAG="$Docker_Username/$PROJECT_NAME:$IMAGE_VERSION"
         DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1307553467405041757/gUzx7aIastYyrjMsAgMtwggxz7tfeuaBGBNa9L8uUfEhOKcj_Ht-WOowjZI9A1qWFoIk' // Replace with your Discord webhook URL
 
     }
