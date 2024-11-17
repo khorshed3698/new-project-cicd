@@ -115,19 +115,51 @@ pipeline {
             }
         }              
 
-        stage('Run Docker container') {
-            steps {
-                echo "Running Docker container for PHP app"
-                sh '''
-                if [ $(docker ps -aq -f name=khorshed-app-prod) ]; then
-            echo "Stopping and removing existing container..."
-            docker stop khorshed-app-prod || true
-            docker rm khorshed-app-prod || true
-                fi
-                docker run -d --name khorshed-app-prod -p 8080:80 $DOCKER_TAG
-                '''
+        stage('Security Scan') {
+    steps {
+        script {
+            // Run Trivy scan on the built image
+            def scanResult = sh(script: "trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_TAG", returnStatus: true)
+            
+            // Prepare the message based on the scan result
+            if (scanResult != 0) {
+                // Send failure message to Discord
+                def message = "Trivy scan failed for image $DOCKER_TAG. Check the logs for details."
+                sh """
+                curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
+                """
+            } else {
+                // Send success message to Discord
+                def message = "Trivy scan succeeded for image $DOCKER_TAG. No critical vulnerabilities found."
+                sh """
+                curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
+                """
             }
         }
+    }
+}
+
+stage('Run Docker container') {
+    steps {
+        script {
+            // Docker login to authenticate with Docker registry
+            withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                sh 'echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin'
+            }
+
+            echo "Running Docker container for PHP app"
+            sh '''
+            if [ $(docker ps -aq -f name=khorshed-app-prod) ]; then
+                echo "Stopping and removing existing container..."
+                docker stop khorshed-app-prod || true
+                docker rm khorshed-app-prod || true
+            fi
+            docker run -d --name khorshed-app-prod -p 8080:80 $DOCKER_TAG
+            '''
+        }
+    }
+}
+
        
     //     stage('Run PHPUnit Tests') {
     //         steps {
