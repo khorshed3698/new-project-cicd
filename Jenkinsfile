@@ -60,15 +60,17 @@ pipeline {
         }
 
         stage('Push Docker image') {
-            steps {
-                script {
-                    docker.withRegistry( "$DOCKER_REGISTRY_URL", dockerRegistryCredential ) {
-                        dockerImage.push()
-                        sh "docker images | grep $PROJECT_NAME"
-                    }
-                }
+    steps {
+        script {
+            echo "Attempting to push image: $DOCKER_TAG"
+            docker.withRegistry("$DOCKER_REGISTRY_URL", dockerRegistryCredential) {
+                dockerImage.push()
+                echo "Docker image pushed successfully."
             }
+            sh "docker images | grep $PROJECT_NAME"
         }
+    }
+}
 
 
         // stage('Security Scan') {
