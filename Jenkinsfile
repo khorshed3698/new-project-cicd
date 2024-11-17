@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         REGISTRY="registry.hub.docker.com"
-        dockerRegistryCredential='khorshedparvej3698'
+        dockerRegistryCredential='khorshed-dockerhub'
         //dockerImage = ''
         DOCKER_REGISTRY_URL="https://$REGISTRY"
         IMAGE_CREATED_BY="jenkins"
