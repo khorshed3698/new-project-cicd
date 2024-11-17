@@ -124,7 +124,7 @@ pipeline {
             docker stop khorshed-app-prod || true
             docker rm khorshed-app-prod || true
                 fi
-                docker run -d --name khorshed-app-prod -p 8090:80 $DOCKER_TAG
+                docker run -d --name khorshed-app-prod -p 8080:80 $DOCKER_TAG
                 '''
             }
         }
