@@ -13,7 +13,7 @@ pipeline {
         ''').trim()
         IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY"
         DOCKER_TAG="$REGISTRY/$DOCKER_USERNAME/$PROJECT_NAME:$IMAGE_VERSION"
-        DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1307553467405041757/gUzx7aIastYyrjMsAgMtwggxz7tfeuaBGBNa9L8uUfEhOKcj_Ht-WOowjZI9A1qWFoIk' // Replace with your Discord webhook URL
+        DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1298740633476923474/94YCtVED6pK-jGd33-je-XpxOrFJMMKFFaalVGwPZbdGxQ2RwmwLsOmGgXcpG-c-1FXP' // Replace with your Discord webhook URL
 
     }
 
