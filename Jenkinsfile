@@ -3,16 +3,16 @@ pipeline {
     environment {
         REGISTRY="registry.hub.docker.com"
         dockerRegistryCredential='khorshed'
-        dockerImage = ''
+        //dockerImage = ''
         DOCKER_REGISTRY_URL="https://$REGISTRY"
         IMAGE_CREATED_BY="jenkins"
         PROJECT_NAME="khorshed-app-prod"
+        DOCKER_USERNAME="khorshedparvej369"
         GIT_TAG=sh(returnStdout: true, script: '''        
             echo $(git describe --tags)
         ''').trim()
         IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY"
-        Docker_Username="khorshedparvej3698"
-        DOCKER_TAG="$Docker_Username/$PROJECT_NAME:$IMAGE_VERSION"
+        DOCKER_TAG="$REGISTRY/$DOCKER_USERNAME/$PROJECT_NAME:$IMAGE_VERSION"
         DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1307553467405041757/gUzx7aIastYyrjMsAgMtwggxz7tfeuaBGBNa9L8uUfEhOKcj_Ht-WOowjZI9A1qWFoIk' // Replace with your Discord webhook URL
 
     }
@@ -61,17 +61,15 @@ pipeline {
         }
 
         stage('Push Docker image') {
-    steps {
-        script {
-            echo "Attempting to push image: $DOCKER_TAG"
-            docker.withRegistry("$DOCKER_REGISTRY_URL", dockerRegistryCredential) {
-                dockerImage.push()
-                echo "Docker image pushed successfully."
+            steps {
+                script {
+                    docker.withRegistry( "https://$DOCKER_TAG", dockerRegistryCredential ) {
+                        dockerImage.push()
+                        sh "docker images | grep $PROJECT_NAME"
+                    }
+                }
             }
-            sh "docker images | grep $PROJECT_NAME"
         }
-    }
-}
 
 
         // stage('Security Scan') {
@@ -121,7 +119,12 @@ pipeline {
             steps {
                 echo "Running Docker container for PHP app"
                 sh '''
-                docker run -d --name php-app -p 8088:80 $DOCKER_TAG
+                if [ $(docker ps -aq -f name=khorshed-app-prod) ]; then
+            echo "Stopping and removing existing container..."
+            docker stop khorshed-app-prod || true
+            docker rm khorshed-app-prod || true
+                fi
+                docker run -d --name khorshed-app-prod -p 8090:80 $DOCKER_TAG
                 '''
             }
         }
@@ -130,7 +133,7 @@ pipeline {
     //         steps {
     //             echo "Running PHPUnit tests in Docker container"
     //             sh '''
-    //             docker khorshed php-app /var/www/html/vendor/bin/phpunit --configuration phpunit.xml
+    //             docker exec php-app /var/www/html/vendor/bin/phpunit --configuration phpunit.xml
     //             '''
     //         }
     //     }
@@ -152,7 +155,7 @@ pipeline {
                 script {
                     echo "Running PHPUnit tests in Docker container"
                     def testResult = sh(script: '''
-                    docker khorshed php-app /var/www/html/vendor/bin/phpunit --configuration phpunit.xml
+                    docker exec khorshed-app-prod /var/www/html/vendor/bin/phpunit --configuration phpunit.xml
                     ''', returnStatus: true)
 
                     // Send test result to Discord
@@ -202,7 +205,7 @@ pipeline {
                     sh 'docker run -d $DOCKER_TAG'
                     
                     // Send deployment success message to Discord
-                    def message = "Deployment of $DOCKER_TAG was successful."
+                    def message = "Deployment of $DOCKER_TAG was successful by khorshed@ba-systems.com."
                     sh """
                     curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
                     """
