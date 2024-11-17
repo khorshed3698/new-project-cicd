@@ -1,40 +1,37 @@
 pipeline {
     agent any
     environment {
-        REGISTRY="registry.hub.docker.com"
-        dockerRegistryCredential='khorshed'
-        //dockerImage = ''
-        DOCKER_REGISTRY_URL="https://$REGISTRY"
-        IMAGE_CREATED_BY="jenkins"
-        PROJECT_NAME="khorshed-php-app"
-        DOCKER_USERNAME="khorshedparvej3698"
-        GIT_TAG=sh(returnStdout: true, script: '''        
-            echo $(git describe --tags)
-        ''').trim()
-        IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY"
-        DOCKER_TAG="$REGISTRY/$DOCKER_USERNAME/$PROJECT_NAME:$IMAGE_VERSION"
+        REGISTRY = "registry.hub.docker.com"
+        dockerRegistryCredential = 'khorshed'
+        IMAGE_CREATED_BY = "jenkins"
+        PROJECT_NAME = "khorshed-php-app"
+        DOCKER_USERNAME = "khorshedparvej3698"
+        // Fetch Git tag dynamically during build process
+        GIT_TAG = ''
+        IMAGE_VERSION = "$BUILD_NUMBER-$IMAGE_CREATED_BY"
+        DOCKER_TAG = "$REGISTRY/$DOCKER_USERNAME/$PROJECT_NAME:$IMAGE_VERSION"
         DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1307553467405041757/gUzx7aIastYyrjMsAgMtwggxz7tfeuaBGBNa9L8uUfEhOKcj_Ht-WOowjZI9A1qWFoIk' // Replace with your Discord webhook URL
-
     }
 
     stages {
-
         stage('Init') {
             steps {
-                sh '''
-                COMMIT_ID=$(git log -1|head -1|awk -F ' ' ' {print $NF}')
-                echo "Commit ID: $COMMIT_ID"
-                '''
+                script {
+                    // Fetch the Git tag dynamically and update the GIT_TAG environment variable
+                    GIT_TAG = sh(returnStdout: true, script: 'git describe --tags').trim()
+                    echo "Commit ID: ${GIT_TAG}"
+                }
             }
         }
 
+        // Uncomment this section if you want to enforce a tag check
         // stage('Check for tag') {
         //     steps {
         //         sh '''        
         //         if [ -z "$GIT_TAG" ] #empty check
         //         then
         //             echo ERROR: Tag not found
-        //             exit 1 # terminate and indicate error                 
+        //             exit 1 # terminate and indicate error                  
         //         fi
         //         echo "git checking out to $GIT_TAG tag"
         //         git checkout $GIT_TAG
@@ -42,6 +39,7 @@ pipeline {
         //     }
         // }
 
+        // Uncomment this section if you want to clean up local images
         // stage('Clean up local image') {
         //     steps {
         //         echo "Cleaning local docker registry $DOCKER_TAG image"
@@ -49,27 +47,38 @@ pipeline {
         //     }
         // }
 
-        stage('Building Docker image') { 
-            steps { 
-                script { 
+        stage('Building Docker image') {
+            steps {
+                script {
+                    // Build the Docker image
                     dockerImage = docker.build("$DOCKER_TAG", "-f ./Dockerfile .")
                 }
                 sh '''
                 docker images | grep $PROJECT_NAME
                 '''
-            } 
+            }
         }
 
         stage('Push Docker image') {
             steps {
                 script {
-                    docker.withRegistry( "https://$DOCKER_TAG", dockerRegistryCredential ) {
+                    // Push the Docker image to the registry
+                    docker.withRegistry("https://$REGISTRY", dockerRegistryCredential) {
                         dockerImage.push()
-                        sh "docker images | grep $PROJECT_NAME"
                     }
                 }
+                sh "docker images | grep $PROJECT_NAME"
             }
         }
+    }
+
+    post {
+        always {
+            // Clean up any resources, notifications, or final tasks
+            echo 'Cleaning up after the build...'
+        }
+    }
+}
 
 
         // stage('Security Scan') {
