@@ -10,12 +10,16 @@ COPY . /var/www/html/
 # Set the working directory
 WORKDIR /var/www/html
 
+# Copy Apache configuration
 COPY default.conf /etc/apache2/sites-enabled/000-default.conf
 
-# Set ownership
-RUN chown -R www-data:www-data /var/www/html
+# Set ownership and permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
 
-# Run Apache and Expose port 80 443
+# Make PHP scripts executable
+RUN chmod -R 755 /var/www/html/vendor/bin/phpunit;
+
+# Run Apache and expose ports
 CMD ["/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
 EXPOSE 80 443
-
