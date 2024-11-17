@@ -117,12 +117,7 @@ pipeline {
 
         stage('Run Docker container') {
             steps {
-               script {
-            // Docker login to authenticate with Docker registry
-            withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                sh 'echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin'
-            }
-                echo "Running Docker container for PHP app"
+               echo "Running Docker container for PHP app"
                 sh '''
                 if [ $(docker ps -aq -f name=khorshed-app-prod) ]; then
             echo "Stopping and removing existing container..."
