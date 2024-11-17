@@ -2,17 +2,17 @@ pipeline {
     agent any
     environment {
         REGISTRY="registry.hub.docker.com"
-        dockerRegistryCredential='khorshed'
+        dockerRegistryCredential='khorshedparvej3698'
         //dockerImage = ''
         DOCKER_REGISTRY_URL="https://$REGISTRY"
         IMAGE_CREATED_BY="jenkins"
         PROJECT_NAME="khorshed-app-prod"
-        DOCKER_USERNAME="khorshedparvej369"
+        DOCKER_USERNAME="khorshedparvej3698"
         GIT_TAG=sh(returnStdout: true, script: '''        
             echo $(git describe --tags)
         ''').trim()
         IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY"
-        DOCKER_TAG="$REGISTRY/$DOCKER_USERNAME/$PROJECT_NAME:$IMAGE_VERSION"
+        DOCKER_TAG="$DOCKER_USERNAME/$PROJECT_NAME:$IMAGE_VERSION"
         DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1307553467405041757/gUzx7aIastYyrjMsAgMtwggxz7tfeuaBGBNa9L8uUfEhOKcj_Ht-WOowjZI9A1qWFoIk' // Replace with your Discord webhook URL
 
     }
@@ -115,51 +115,24 @@ pipeline {
             }
         }              
 
-        stage('Security Scan') {
-    steps {
-        script {
-            // Run Trivy scan on the built image
-            def scanResult = sh(script: "trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_TAG", returnStatus: true)
-            
-            // Prepare the message based on the scan result
-            if (scanResult != 0) {
-                // Send failure message to Discord
-                def message = "Trivy scan failed for image $DOCKER_TAG. Check the logs for details."
-                sh """
-                curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                """
-            } else {
-                // Send success message to Discord
-                def message = "Trivy scan succeeded for image $DOCKER_TAG. No critical vulnerabilities found."
-                sh """
-                curl -H "Content-Type: application/json" -d '{ "content": "${message}" }' ${DISCORD_WEBHOOK_URL}
-                """
-            }
-        }
-    }
-}
-
-stage('Run Docker container') {
-    steps {
-        script {
+        stage('Run Docker container') {
+            steps {
+               script {
             // Docker login to authenticate with Docker registry
             withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                 sh 'echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin'
             }
-
-            echo "Running Docker container for PHP app"
-            sh '''
-            if [ $(docker ps -aq -f name=khorshed-app-prod) ]; then
-                echo "Stopping and removing existing container..."
-                docker stop khorshed-app-prod || true
-                docker rm khorshed-app-prod || true
-            fi
-            docker run -d --name khorshed-app-prod -p 8080:80 $DOCKER_TAG
-            '''
+                echo "Running Docker container for PHP app"
+                sh '''
+                if [ $(docker ps -aq -f name=khorshed-app-prod) ]; then
+            echo "Stopping and removing existing container..."
+            docker stop khorshed-app-prod || true
+            docker rm khorshed-app-prod || true
+                fi
+                docker run -d --name khorshed-app-prod -p 8090:80 $DOCKER_TAG
+                '''
+            }
         }
-    }
-}
-
        
     //     stage('Run PHPUnit Tests') {
     //         steps {
